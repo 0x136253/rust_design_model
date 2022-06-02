@@ -2,4 +2,6 @@
 
 members = [
     "idioms",
+    "command",
+    "builder",
 ]
