@@ -17,7 +17,7 @@
 
 行为型模式，共十一种：策略模式、模板方法模式、观察者模式、迭代子模式、责任链模式、命令模式、备忘录模式、状态模式、访问者模式、中介者模式、解释器模式。
 
-#### 1.工厂方法模式
+#### 1.工厂方法模式(factory-method)
 
 ```rust
 /**
@@ -84,7 +84,7 @@ fn main() {
 
 
 
-#### 2.抽象工厂模式
+#### 2.抽象工厂模式(abstract-factory)
 
 ```rust
 
@@ -114,7 +114,7 @@ pub trait GuiFactoryDynamic {
 
 
 
-#### 3.单例模式
+#### 3.单例模式(Singleton)
 
 **虽可实现，但不推荐**
 
@@ -197,7 +197,7 @@ fn main() {
 
 
 
-#### 4.建造者模式
+#### 4.建造者模式(Builder)
 
 通过调用建造者来构造对象。
 
@@ -261,7 +261,7 @@ fn main() {
 
 
 
-#### 5.原型模式
+#### 5.原型模式(Prototype)
 
 就是`Clone`,也可以通过实现`From`来实现,略过
 
@@ -269,7 +269,7 @@ fn main() {
 
 结构型模式，共七种：适配器模式、装饰器模式、代理模式、外观模式、桥接模式、组合模式、享元模式。
 
-#### 1.适配器模式
+#### 1.适配器模式(Adapter)
 
 ```rust
 //有一个call函数只接受接口 （trait）为Target的参数：
@@ -320,7 +320,7 @@ impl Target for TargetAdapter {
 
 
 
-#### 2.装饰器模式
+#### 2.装饰器模式(Decorator)
 
 ```rust
 //利用派生宏实现
@@ -336,7 +336,7 @@ pub struct Foo {
 
 
 
-#### 3.代理模式
+#### 3.代理模式(Proxy)
 
 在某些情况下，一个客户类不想或者不能直接引用一个委托对象，而代理类对象可以在客户类和委托对象之间起到中介的作用，其特征是代理类和委托类实现相同的接口。
 
@@ -402,7 +402,7 @@ impl Server for NginxServer {
 
 
 
-#### 4.外观模式
+#### 4.外观模式(Facade)
 
 该模式就是把一些复杂的流程封装成一个接口供给外部用户更简单的使用
 
@@ -475,7 +475,7 @@ impl WalletFacade {
 
 
 
-#### 5.桥接模式
+#### 5.桥接模式(Bridge)
 
 定义： 将业务逻辑或巨大的类型划分为独立的类型层次，可以独立开发
 
@@ -699,27 +699,324 @@ impl<D: Device> Remote<D> for BasicRemote<D> {}
 
 
 
-#### 6.组合模式
+#### 6.组合模式(Composite)
+
+定义：有时又叫作部分-整体模式，它是一种将对象组合成树状的层次结构的模式，用来表示“部分-整体”的关系，使用户对单个对象和组合对象具有一致的访问性。
+
+意图：将对象组合成树形结构以表示"部分-整体"的层次结构。组合模式使得用户对单个对象和组合对象的使用具有一致性。
+
+```rust
+pub trait Component {
+    fn search(&self, keyword: &str);
+}
+
+//File
+pub struct File {
+    name: &'static str,
+}
+
+impl File {
+    pub fn new(name: &'static str) -> Self {
+        Self { name }
+    }
+}
+
+impl Component for File {
+    fn search(&self, keyword: &str) {
+        println!("Searching for keyword {} in file {}", keyword, self.name);
+    }
+}
+
+//Folder
+pub struct Folder {
+    name: &'static str,
+    components: Vec<Box<dyn Component>>,
+}
+
+impl Folder {
+    pub fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            components: vec![],
+        }
+    }
+
+    pub fn add(&mut self, component: impl Component + 'static) {
+        self.components.push(Box::new(component));
+    }
+}
+
+impl Component for Folder {
+    fn search(&self, keyword: &str) {
+        println!(
+            "Searching recursively for keyword {} in folder {}",
+            keyword, self.name
+        );
+
+        for component in self.components.iter() {
+            component.search(keyword);
+        }
+    }
+}
+
+
+fn main() {
+    let file1 = File::new("File 1");
+    let file2 = File::new("File 2");
+    let file3 = File::new("File 3");
+
+    let mut folder1 = Folder::new("Folder 1");
+    folder1.add(file1);
+
+    let mut folder2 = Folder::new("Folder 2");
+    folder2.add(file2);
+    folder2.add(file3);
+    folder2.add(folder1);
+
+    folder2.search("rose");
+}
+```
 
 
 
-#### 7.享元模式
+#### 7.享元模式(Flyweight)
+
+定义：通过共享的方式高效的支持大量细粒度的对象。
+
+主要解决：在有大量对象时，有可能会造成内存溢出，我们把其中共同的部分抽象出来，如果有相同的业务请求，直接返回在内存中已有的对象，避免重新创建。
+
+```rust
+pub enum TreeColor {
+    Color1,
+    Color2,
+    TrunkColor,
+}
+
+pub struct TreeKind {
+    color: TreeColor,
+    _name: String,
+    _data: String,
+}
+
+pub struct Tree {
+    x: u32,
+    y: u32,
+    kind: Rc<TreeKind>,
+}
+
+
+pub struct Forest {
+    cache: HashSet<Rc<TreeKind>>,
+    trees: Vec<Tree>,
+}
+```
 
 
 
-行为型模式，共十一种：策略模式、模板方法模式、观察者模式、迭代子模式、责任链模式、命令模式、备忘录模式、状态模式、访问者模式、中介者模式、解释器模式。
 
-#### 1.策略模式
 
-#### 2.模板方法模式
+行为型模式，共十一种
 
-#### 3.观察者模式
+| 父类与子类   | 两个类之间 | 类的状态   | 通过中间类 |
+| ------------ | ---------- | ---------- | ---------- |
+| 策略模式     | 观察者模式 | 备忘录模式 | 访问者     |
+| 模板方法模式 | 迭代器模式 | 状态模式   | 中介者模式 |
+|              | 责任链模式 |            | 解释器模式 |
+|              | 命令模式   |            |            |
 
-#### 4.迭代子模式
+#### 1.策略模式(Strategy)
 
-#### 5.责任链模式
+定义： 策略模式定义了一系列算法，并将每个算法封装起来，使他们可以相互替换，且算法的变化不会影响到使用算法的客户。
 
-#### 6.命令模式
+```rust
+trait Strategy {
+    fn execute(&self);
+}
+
+//策略A
+struct ConcreteStrategyA;
+impl Strategy for ConcreteStrategyA {
+    fn execute(&self) {
+        println!("ConcreteStrategyA")
+    }
+}
+
+//策略B
+struct ConcreteStrategyB;
+impl Strategy for ConcreteStrategyB {
+    fn execute(&self) {
+        println!("ConcreteStrategyB")
+    }
+}
+
+
+struct Context<S> {
+    strategy: S,
+}
+impl<S> Context<S>
+where
+    S: Strategy,
+{
+    fn do_things(&self) {
+        println!("Common preamble");
+        self.strategy.execute();
+        println!("Common postamble");
+    }
+}
+```
+
+
+
+#### 2.模板方法模式(template-method)
+
+定义：定义一个操作中算法的骨架，而将一些步骤延迟到子类中，模板方法使得子类可以不改变算法的结构即可重定义该算法的某些特定步骤。
+
+```rust
+trait TemplateMethod {
+    fn template_method(&self) {
+        self.base_operation1();
+        self.required_operations1();
+        self.base_operation2();
+        self.hook1();
+        self.required_operations2();
+        self.base_operation3();
+        self.hook2();
+    }
+
+    fn base_operation1(&self) {
+        println!("TemplateMethod says: I am doing the bulk of the work");
+    }
+
+    fn base_operation2(&self) {
+        println!("TemplateMethod says: But I let subclasses override some operations");
+    }
+
+    fn base_operation3(&self) {
+        println!("TemplateMethod says: But I am doing the bulk of the work anyway");
+    }
+
+    fn hook1(&self) {}
+    fn hook2(&self) {}
+
+    fn required_operations1(&self);
+    fn required_operations2(&self);
+}
+
+struct ConcreteStruct1;
+
+impl TemplateMethod for ConcreteStruct1 {
+    fn required_operations1(&self) {
+        println!("ConcreteStruct1 says: Implemented Operation1")
+    }
+
+    fn required_operations2(&self) {
+        println!("ConcreteStruct1 says: Implemented Operation2")
+    }
+}
+
+struct ConcreteStruct2;
+
+impl TemplateMethod for ConcreteStruct2 {
+    fn required_operations1(&self) {
+        println!("ConcreteStruct2 says: Implemented Operation1")
+    }
+
+    fn required_operations2(&self) {
+        println!("ConcreteStruct2 says: Implemented Operation2")
+    }
+}
+
+fn client_code(concrete: impl TemplateMethod) {
+    concrete.template_method()
+}
+
+fn main() {
+    println!("同一客户代码可以与不同的具体实现一起工作:");
+    client_code(ConcreteStruct1);
+    println!();
+
+    println!("同一客户代码可以与不同的具体实现一起工作:");
+    client_code(ConcreteStruct2);
+}
+```
+
+
+
+#### 3.观察者模式(Observer)
+
+观察者是一种行为设计模式，它允许一些对象通知其他对象其状态的变化。
+
+```rust
+//编译期无法确定大小，解决方案:
+//1.使用callback函数，不保存对象，保存类似函数指针,没有生命周期问题或类型擦除
+//2.lambda 函数，与2类似，用函数而非对象作为订阅者
+//3.结合泛型实现，原理为通过遍历泛型对象，从而在编译期确定对象大小
+//impl<'a, T: IObserver + PartialEq> ISubject<'a, T> for Observable<'a, T>
+impl Observer for A {
+    fn event(&mut self, ev: &String) {
+        println!("Got event from observable: {}", ev);
+    }
+}
+
+struct Observable {
+    observers: Vec<dyn Observer>, //如何保存观察者引用，ERROR:无法在编译期确定observers大小
+}
+
+impl Observable {
+    fn new() -> Observable {
+        Observable {
+            observers: Vec::new(),
+        }
+    }
+
+    fn add_observer(&mut self, o: &dyn Observer) {
+        // ERROR
+        self.observers.push(o);
+    }
+
+    fn remove_observer(&mut self, o: &dyn Observer) {
+        // ERROR
+        self.observers.remove(o);
+    }
+
+    fn notify_observers(&self, ev: &String) {
+        for o in &mut self.observers {
+            o.event(ev);
+        }
+    }
+}
+
+//在垃圾收集的语言中，通常会Observable引用Observer（通知它）和Observer引用Observable（注销自身）......
+//这会在所有权方面造成一些挑战（谁比谁活得长？），这就需要完全整体“取消注册通知”。
+//解决方案:使用弱引用解决循环依赖，Weak<RefCell<dyn Observer>>
+```
+
+
+
+#### 4.迭代器模式(Iterator)
+
+顺序遍历复杂的数据结构而不暴露其内部细节
+
+实现`Iterator`即可
+
+```rust
+impl Iterator for UserIterator<'_> {
+    fn next(&mut self) -> Option<Self::Item>;
+}
+
+let users = UserCollection::new();
+let mut iterator = users.iter();
+
+iterator.next();
+```
+
+
+
+#### 5.责任链模式(chain-of-responsibility)
+
+
+
+#### 6.命令模式(Command)
 
 命令模式的基本概念是，将动作分离为单独的对象，并且作为参数传递它们
 
@@ -894,15 +1191,15 @@ fn main() {
 
 ```
 
-#### 7.备忘录模式
+#### 7.备忘录模式(Memento)
 
-#### 8.状态模式
+#### 8.状态模式(State)
 
-#### 9.访问者模式
+#### 9.访问者模式(Vistor)
 
-#### 10.中介者模式
+#### 10.中介者模式(Mediator)
 
-#### 11.解释器模式
+#### 11.解释器模式(Interpreter)
 
 
 
