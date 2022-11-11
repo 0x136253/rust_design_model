@@ -1,3 +1,4 @@
 **/target
 **/.vscode
-
+/res
+.DS_store
