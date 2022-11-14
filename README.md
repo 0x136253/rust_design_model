@@ -1,4 +1,4 @@
-# Rust设计模式
+Rust设计模式
 
 ### You Aren't Going to Need It.(YAGNI原则)
 
@@ -1014,6 +1014,41 @@ iterator.next();
 
 #### 5.责任链模式(chain-of-responsibility)
 
+定义：如果有多个对象有机会处理请求，责任链可使请求的发送者和接受者解耦，请求沿着责任链传递，直到有一个对象处理了它为止。
+
+```rust
+//使用Box，避开生命周期与mutable引用问题
+pub trait Policeman {
+    fn set_next(&mut self, next: Box<dyn Policeman>);
+}
+
+pub struct Officer{
+    deduction: u8,
+    next: Option<Box<dyn Policeman>>,
+}
+
+impl Officer {
+    pub fn new(deduction: u8) -> Officer {
+        Officer {deduction, next: None}
+    }
+}
+
+impl Policeman for Officer {
+    fn set_next(&mut self, next: Box<dyn Policeman>) {
+        self.next = Some(next);
+    }
+}
+
+fn main() {
+    let vincent = Officer::new(8);    // -+ vincent 进入生命周期范围scope
+    let mut john = Officer::new(5);   // -+ john 进入生命周期范围scope
+    let mut martin = Officer::new(3); // -+ martin 进入生命周期范围scope
+                                               //  |
+    john.set_next(Box::new(vincent));          //  |
+    martin.set_next(Box::new(john));           //  |
+}      
+```
+
 
 
 #### 6.命令模式(Command)
@@ -1193,13 +1228,297 @@ fn main() {
 
 #### 7.备忘录模式(Memento)
 
+定义： 在不破坏封装性的前提下，捕获一个对象的内部状态，并在该对象之外保存这个状态，以便以后当需要时能将该对象恢复到原先保存的状态。该模式又叫快照模式。
+
+```rust
+trait Memento<T> {
+    fn restore(self) -> T;
+    fn print(&self);
+}
+
+//发起人
+struct Originator {
+    state: u32,
+}
+
+impl Originator {
+    pub fn save(&self) -> OriginatorBackup {
+        OriginatorBackup {
+            state: self.state.to_string(),
+        }
+    }
+}
+
+//备份记录
+struct OriginatorBackup {
+    state: String,
+}
+
+impl Memento<Originator> for OriginatorBackup {
+    fn restore(self) -> Originator {
+        Originator {
+            state: self.state.parse().unwrap(),
+        }
+    }
+
+    fn print(&self) {
+        println!("Originator backup: '{}'", self.state);
+    }
+}
+
+fn main() {
+    let mut history = Vec::<OriginatorBackup>::new();
+
+    let mut originator = Originator { state: 0 };
+
+    originator.state = 1;
+    history.push(originator.save());
+
+    originator.state = 2;
+    history.push(originator.save());
+
+    for moment in history.iter() {
+        moment.print();
+    }
+
+    let originator = history.pop().unwrap().restore();
+    println!("Restored to state: {}", originator.state);
+
+    let originator = history.pop().unwrap().restore();
+    println!("Restored to state: {}", originator.state);
+}
+```
+
+
+
 #### 8.状态模式(State)
+
+定义： 在状态模式中，我们创建表示各种状态的对象和一个行为随着状态对象改变而改变的 context 对象。
+
+```rust
+//状态模式有一个基本 trait State和方法可以进行状态转换play：stop
+pub trait State {
+    fn play(self: Box<Self>, player: &mut Player) -> Box<dyn State>{
+        self
+    }
+
+    fn stop(self: Box<Self>, player: &mut Player) -> Box<dyn State>{
+        self
+    }
+}
+
+//每个状态都是实现的类型trait State
+pub struct StoppedState;
+pub struct PausedState;
+pub struct PlayingState;
+impl State for StoppedState {}
+impl State for PausedState {}
+impl State for PlayingState {}
+
+//在这些实现状态再完成play动作，如PlayingState代码：
+impl PlayingState {
+  fn play(self: Box<Self>, player: &mut Player) -> Box<dyn State> {
+    player.pause();
+
+    // Playing -> Paused.
+    Box::new(PausedState)
+	}
+}
+
+//最后，调用相同的操作play会根据调用的位置转换到不同的状态：
+let state = Box::new(StoppedState);   // StoppedState.
+let state = state.play(&mut player);  // StoppedState -> PlayingState.
+let state = state.play(&mut player);  // PlayingState -> PausedState.
+```
+
+
 
 #### 9.访问者模式(Vistor)
 
+定义：将作用于某种数据结构中的**各元素的操作分离出来封装成独立的类**，使其在**不改变数据结构**的前提下可以添加作用于这些元素的新的操作，为数据结构中的每个元素提供多种访问方式。它将对数据的操作与数据结构进行分离。
+
+```rust
+// 访问的模式
+mod ast {
+    pub enum Stmt {
+        Expr(Expr),
+        Let(Name, Expr),
+    }
+
+    pub struct Name {
+        value: String,
+    }
+
+    pub enum Expr {
+        IntLit(i64),
+        Add(Box<Expr>, Box<Expr>),
+        Sub(Box<Expr>, Box<Expr>),
+    }
+}
+
+// 抽象Vistor
+mod visit {
+    use ast::*;
+
+    pub trait Visitor<T> {
+        fn visit_name(&mut self, n: &Name) -> T;
+        fn visit_stmt(&mut self, s: &Stmt) -> T;
+        fn visit_expr(&mut self, e: &Expr) -> T;
+    }
+}
+
+use visit::*;
+use ast::*;
+
+// 实现案例
+struct Interpreter;
+impl Visitor<i64> for Interpreter {
+    fn visit_name(&mut self, n: &Name) -> i64 { panic!() }
+    fn visit_stmt(&mut self, s: &Stmt) -> i64 {
+        match *s {
+            Stmt::Expr(ref e) => self.visit_expr(e),
+            Stmt::Let(..) => unimplemented!(),
+        }
+    }
+
+    fn visit_expr(&mut self, e: &Expr) -> i64 {
+        match *e {
+            Expr::IntLit(n) => n,
+            Expr::Add(ref lhs, ref rhs) => self.visit_expr(lhs) + self.visit_expr(rhs),
+            Expr::Sub(ref lhs, ref rhs) => self.visit_expr(lhs) - self.visit_expr(rhs),
+        }
+    }
+}
+```
+
+
+
 #### 10.中介者模式(Mediator)
 
+定义：定义一个中介对象来封装一系列对象之间的交互，使原有对象之间的耦合松散，且可以独立地改变它们之间的交互
+
+**不建议使用**：许多对象相互持有可变的交叉引用，且试图相互修改，在 Rust 中这是一个致命的错误
+
+方法:
+
+1.交叉引用Rc<RefCell<..>>，不推荐，本质是将本该在编译期完成的借用检查推迟到运行时，容易导致panic
+
+2.自上而下的所有权
+
+```rust
+//1.中介者拥有所有组件的所有权。
+//2.组件不保留对中介者的引用。相反，它通过方法调用获取其引用。
+
+// 通过引用获取中介
+pub trait Train {
+    fn name(&self) -> &String;
+    fn arrive(&mut self, mediator: &mut dyn Mediator);
+    fn depart(&mut self, mediator: &mut dyn Mediator);
+}
+
+// Mediator，有提醒通知方法
+pub trait Mediator {
+    fn notify_about_arrival(&mut self, train_name: &str) -> bool;
+    fn notify_about_departure(&mut self, train_name: &str);
+}
+
+//中介接收外部事件
+let train1 = PassengerTrain::new("Train 1");
+let train2 = FreightTrain::new("Train 2");
+
+// Station车站有`accept`和`depart`方法。
+// 但是它也实现了`Mediator'。
+let mut station = TrainStation::default();
+
+// Station车站正在接受列车的所有权。
+station.accept(train1);
+station.accept(train2);
+
+/ `train1`和`train2`已经被移到里面。
+// 但我们可以用train的名字来 depart它们
+station.depart("Train 1");
+station.depart("Train 2");
+station.depart("Train 3");
+```
+
+
+
 #### 11.解释器模式(Interpreter)
+
+如果一个问题经常出现并且需要很多且重复的步骤来解决，那么问题应该被抽象为一个简单的语言并且一个解释器对象能通过解释这种语言的句子来解决问题
+
+```rust
+//exp -> exp + term
+//exp -> exp - term
+//exp -> term
+//term -> 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+
+//递归下降
+pub struct Interpreter<'a> {
+    it: std::str::Chars<'a>,
+}
+impl<'a> Interpreter<'a> {
+    pub fn new(infix: &'a str) -> Self {
+        Self { it: infix.chars() }
+    }
+    fn next_char(&mut self) -> Option<char> {
+        self.it.next()
+    }
+    pub fn interpret(&mut self, out: &mut String) {
+        self.term(out);
+        while let Some(op) = self.next_char() {
+            if op == '+' || op == '-' {
+                self.term(out);
+                out.push(op);
+            } else {
+                panic!("Unexpected symbol '{}'", op);
+            }
+        }
+    }
+    fn term(&mut self, out: &mut String) {
+        match self.next_char() {
+            Some(ch) if ch.is_digit(10) => out.push(ch),
+            Some(ch) => panic!("Unexpected symbol '{}'", ch),
+            None => panic!("Unexpected end of string"),
+        }
+    }
+}
+pub fn main() {
+    let mut intr = Interpreter::new("2+3");
+    let mut postfix = String::new();
+    intr.interpret(&mut postfix);
+    assert_eq!(postfix, "23+");
+    intr = Interpreter::new("1-2+3-4");
+    postfix.clear();
+    intr.interpret(&mut postfix);
+    assert_eq!(postfix, "12-3+4-");
+}
+```
+
+
+
+```rust
+//宏
+macro_rules! norm {
+    ($($element:expr),*) => {
+        {
+            let mut n = 0.0;
+            $(
+                n += ($element as f64)*($element as f64);
+            )*
+            n.sqrt()
+        }
+    };
+}
+fn main() {
+    let x = -3f64;
+    let y = 4f64;
+    assert_eq!(3f64, norm!(x));
+    assert_eq!(5f64, norm!(x, y));
+    assert_eq!(0f64, norm!(0, 0, 0)); 
+    assert_eq!(1f64, norm!(0.5, -0.5, 0.5, -0.5));
+}
+```
 
 
 
