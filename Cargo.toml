@@ -33,3 +33,6 @@ members = [
     "design-patterns-rust/structural/flyweight",
     "design-patterns-rust/structural/proxy"
 ]
+
+# [profile.dev]
+# opt-level=3
